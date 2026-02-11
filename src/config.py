@@ -13,7 +13,13 @@ load_dotenv(PROJECT_ROOT / ".env")
 
 # ── LLM Configuration ──────────────────────────────────────────────
 OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
+GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "")
+
 LLM_MODEL: str = os.getenv("LLM_MODEL", "gpt-4o")
+LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openai")
+
 REQUEST_TIMEOUT: int = int(os.getenv("REQUEST_TIMEOUT", "90"))
 MAX_RETRIES: int = int(os.getenv("MAX_RETRIES", "3"))
 

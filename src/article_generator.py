@@ -174,7 +174,7 @@ class ArticleGenerator:
     def __init__(self, llm_client: LLMClient):
         self.llm = llm_client
 
-    def generate(self, topic: str, language: str, tone: str, max_retries: int = 2) -> ArticleData:
+    def generate(self, topic: str, language: str, tone: str, max_retries: int = 2, additional_context: str = "") -> ArticleData:
         """
         Generate a complete GEO-ready article for the given topic.
         Validates structure and retries if sections are missing.
@@ -184,6 +184,7 @@ class ArticleGenerator:
             language: Target language ('fr' or 'en').
             tone: Writing tone.
             max_retries: Max regeneration attempts if structure is invalid.
+            additional_context: RAG context or real sources.
             
         Returns:
             ArticleData with parsed content and validation results.
@@ -193,7 +194,7 @@ class ArticleGenerator:
         for attempt in range(1, max_retries + 1):
             logger.info(f"Generating article for '{topic}' (attempt {attempt}/{max_retries})")
             
-            raw_content = self.llm.generate_article(topic, language, tone)
+            raw_content = self.llm.generate_article(topic, language, tone, additional_context)
             article = self._parse_article(raw_content, topic, language, tone, slug)
             errors = self._validate(article)
             

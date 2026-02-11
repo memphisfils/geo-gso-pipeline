@@ -10,6 +10,7 @@ import argparse
 import json
 import logging
 import sys
+import os
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -54,22 +55,48 @@ def load_topics(input_path: str) -> list[dict]:
     return topics
 
 
-def run_pipeline(input_path: str, output_dir: str, parallel: bool = False):
+def run_pipeline(args):
     """
-    Main pipeline orchestration:
-    1. Load topics
-    2. Generate articles via LLM  
-    3. Score quality
-    4. Run deduplication
-    5. Export (Markdown + JSON + HTML)
-    6. Generate summary
+    Main pipeline orchestration.
     """
+    input_path = args.input
+    output_dir = args.output
+    parallel = args.parallel
+    batch_mode = args.batch
+    workers = args.workers
+    use_wordpress = args.wordpress
+    use_sources = args.sources_retrieval
+    use_rag = args.rag
+
     from src.config import validate_config
     from src.llm_client import LLMClient
     from src.article_generator import ArticleGenerator
     from src.scorer import ArticleScorer
     from src.deduplication import DeduplicationEngine
     from src.exporter import ArticleExporter
+    
+    # Optional modules
+    rag_enricher = None
+    if use_rag:
+        try:
+            from src.rag_module import create_rag_enhanced_generator
+            rag_enricher = create_rag_enhanced_generator()
+            console.print("[green]✓ RAG Module enabled[/green]")
+        except ImportError:
+            console.print("[yellow]⚠ RAG module not found, skipping[/yellow]")
+    
+    wp_publisher = None
+    if use_wordpress:
+        try:
+            from src.wordpress_publisher import WordPressPublisher
+            wp_publisher = WordPressPublisher(dry_run=False) # Will use env vars
+            if not wp_publisher.test_connection():
+                console.print("[yellow]⚠ WordPress connection failed. Falling back to dry-run.[/yellow]")
+                wp_publisher.dry_run = True
+            else:
+                console.print("[green]✓ WordPress Publisher enabled[/green]")
+        except ImportError:
+            console.print("[yellow]⚠ WordPress module not found, skipping[/yellow]")
 
     # ── Validation ─────────────────────────────────────────────────
     console.print(Panel.fit(
@@ -87,8 +114,8 @@ def run_pipeline(input_path: str, output_dir: str, parallel: bool = False):
     topics = load_topics(input_path)
     console.print(f"\n[green]✓[/green] Loaded [bold]{len(topics)}[/bold] topics from [cyan]{input_path}[/cyan]")
     
-    # ── Initialize Modules ─────────────────────────────────────────
-    llm_client = LLMClient()
+    # ── Initialize Core Modules ────────────────────────────────────
+    llm_client = LLMClient(provider=args.provider, model=args.model)
     generator = ArticleGenerator(llm_client)
     scorer = ArticleScorer()
     dedup_engine = DeduplicationEngine()
@@ -98,20 +125,55 @@ def run_pipeline(input_path: str, output_dir: str, parallel: bool = False):
     articles = []
     console.print(f"\n[bold]📝 Step 1/4: Generating articles...[/bold]\n")
     
-    if parallel and len(topics) > 1:
-        # Parallel generation (bonus feature)
-        max_workers = min(3, len(topics))  # Limit to avoid rate limits
-        console.print(f"  Using parallel processing ({max_workers} workers)\n")
+    # helper for single topic generation
+    def process_topic(topic_data):
+        topic = topic_data["topic"]
+        lang = topic_data["language"]
+        tone = topic_data["tone"]
+        
+        additional_context = ""
+        
+        # RAG Enrichment
+        if rag_enricher:
+            try:
+                # We retrieve context strings
+                context = rag_enricher.kb.retrieve(topic, top_k=2).formatted_context
+                if context:
+                    additional_context += f"\n{context}"
+            except Exception as e:
+                logger.warning(f"RAG failed for {topic}: {e}")
+        
+        # Source Retrieval
+        if use_sources:
+            try:
+                from src.sources_retrieval import SourcesRetrievalEngine
+                # Check for API keys
+                api_key = os.getenv("SERPER_API_KEY") or os.getenv("TAVILY_API_KEY")
+                provider = "serper" if os.getenv("SERPER_API_KEY") else ("tavily" if os.getenv("TAVILY_API_KEY") else "duckduckgo")
+                
+                source_engine = SourcesRetrievalEngine(search_provider=provider, api_key=api_key)
+                sources = source_engine.get_sources_for_topic(topic, num_sources=3)
+                
+                if sources:
+                    source_text = source_engine.format_sources_for_article(sources)
+                    additional_context += f"\n\nREAL WEB SOURCES:\n{source_text}"
+            except ImportError:
+                 logger.warning("Sources retrieval module not found")
+            except Exception as e:
+                logger.warning(f"Source retrieval failed for {topic}: {e}")
+
+        return generator.generate(topic, lang, tone, additional_context=additional_context)
+
+    if (parallel or batch_mode) and len(topics) > 1:
+        # Parallel processing
+        max_workers = workers if batch_mode else min(3, len(topics))
+        mode_str = "Batch" if batch_mode else "Parallel"
+        console.print(f"  Using {mode_str} processing ({max_workers} workers)\n")
         
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {}
             for i, topic_data in enumerate(topics):
-                future = executor.submit(
-                    generator.generate,
-                    topic_data["topic"],
-                    topic_data["language"],
-                    topic_data["tone"],
-                )
+                future = executor.submit(process_topic, topic_data)
                 futures[future] = (i, topic_data)
             
             with Progress(
@@ -152,11 +214,7 @@ def run_pipeline(input_path: str, output_dir: str, parallel: bool = False):
                         task,
                         description=f"[{i+1}/{len(topics)}] {topic_data['topic'][:50]}..."
                     )
-                    article = generator.generate(
-                        topic_data["topic"],
-                        topic_data["language"],
-                        topic_data["tone"],
-                    )
+                    article = process_topic(topic_data)
                     articles.append(article)
                     progress.update(task, advance=1)
                 except Exception as e:
@@ -223,6 +281,10 @@ def run_pipeline(input_path: str, output_dir: str, parallel: bool = False):
         exporter.export_markdown(article)
         exporter.export_json(article, score)
         exporter.export_html(article, score)
+        
+        # WordPress Publication
+        if wp_publisher:
+            wp_publisher.publish_article(article, score)
     
     # Generate global summary
     summary_path = exporter.generate_summary(articles, scores, dedup_result)
@@ -232,6 +294,9 @@ def run_pipeline(input_path: str, output_dir: str, parallel: bool = False):
     console.print(f"  📋 JSON:     {exporter.json_dir}")
     console.print(f"  🌐 HTML:     {exporter.html_dir}")
     console.print(f"  📊 Summary:  {summary_path}")
+    
+    if wp_publisher:
+        console.print(f"  📝 WordPress: Published {len(articles)} posts ({'DRY RUN' if wp_publisher.dry_run else 'LIVE'})")
     
     # ── Final Summary ──────────────────────────────────────────────
     avg_score = sum(s.total for s in scores) / len(scores)
@@ -254,6 +319,8 @@ def main():
 Examples:
   python generate.py --input topics.json --output ./out
   python generate.py --input topics.json --output ./out --parallel
+  python generate.py --input topics.json --output ./out --batch --workers 5
+  python generate.py --input topics.json --output ./out --wordpress --rag --sources-retrieval
         """,
     )
     parser.add_argument(
@@ -269,11 +336,47 @@ Examples:
     parser.add_argument(
         "--parallel", "-p",
         action="store_true",
-        help="Enable parallel article generation (bonus feature)",
+        help="Enable parallel article generation",
+    )
+    parser.add_argument(
+        "--wordpress", "-wp",
+        action="store_true",
+        help="Publish articles to WordPress (requires WP credentials in .env)",
+    )
+    parser.add_argument(
+        "--batch", "-b",
+        action="store_true",
+        help="Enable batch processing with multi-workers",
+    )
+    parser.add_argument(
+        "--workers", "-w",
+        type=int,
+        default=3,
+        help="Number of workers for batch processing (default: 3)",
+    )
+    parser.add_argument(
+        "--sources-retrieval",
+        action="store_true",
+        help="Enable real source retrieval from web search",
+    )
+    parser.add_argument(
+        "--rag",
+        action="store_true",
+        help="Enable RAG enrichment from knowledge base",
+    )
+    
+    parser.add_argument(
+        "--provider",
+        choices=["openai", "anthropic", "gemini", "deepseek"],
+        help="LLM provider to use (default: env LLM_PROVIDER or openai)",
+    )
+    parser.add_argument(
+        "--model",
+        help="Specific model name (overrides default for provider)",
     )
     
     args = parser.parse_args()
-    run_pipeline(args.input, args.output, parallel=args.parallel)
+    run_pipeline(args)
 
 
 if __name__ == "__main__":
