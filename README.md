@@ -37,39 +37,39 @@ Le pipeline suit une architecture modulaire et événementielle, conçue pour la
 ```mermaid
 graph TD
     subgraph Inputs
-        A[topics.json] -->|Load| B[CLI Controller]
+        A["topics.json"] -->|Load| B["CLI Controller"]
     end
 
     subgraph Core Pipeline
         B -->|Orchestrate| C{Processing Mode}
-        C -->|Sequential| D[ArticleGenerator]
+        C -->|Sequential| D["ArticleGenerator"]
         C -->|Parallel/Batch| D
         
-        D -->|Prompt Engineering| E[LLM Client]
-        E -->|API Call| F((LLM Providers))
+        D -->|Prompt Engineering| E["LLM Client"]
+        E -->|API Call| F(("LLM Providers"))
         F -.->|OpenAI/Ant/Gemini/DeepSeek| E
         
         subgraph Enrichment
-            D -.->|RAG| G[Vector Store]
-            D -.->|Search| H[Web Sources]
+            D -.->|RAG| G["Vector Store"]
+            D -.->|Search| H["Web Sources"]
         end
         
-        D -->|Raw Text| I[Parser & Validator]
+        D -->|Raw Text| I["Parser & Validator"]
     end
 
     subgraph Quality Assurance
-        I -->|Article Object| J[Deduplication Engine]
-        J -->|Embeddings| K[Vector DB (Local)]
+        I -->|Article Object| J["Deduplication Engine"]
+        J -->|Embeddings| K["Vector DB (Local)"]
         J -->|Similarity Check| I
         
-        I -->|Validated Article| L[Scorer]
-        L -->|5-Criteria Analysis| M[Score Report]
+        I -->|Validated Article| L["Scorer"]
+        L -->|5-Criteria Analysis| M["Score Report"]
     end
 
     subgraph Output & Publishing
-        I -->|Export| N[Exporter]
-        N --> O[Markdown / JSON / HTML]
-        N -->|API| P[WordPress Publisher]
+        I -->|Export| N["Exporter"]
+        N --> O["Markdown / JSON / HTML"]
+        N -->|API| P["WordPress Publisher"]
     end
 ```
 
