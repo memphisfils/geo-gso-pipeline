@@ -11,7 +11,7 @@ An advanced, production-grade pipeline that generates, scores, and exports high-
 
 ---
 
-## 👩‍💻 Guide pour le Correcteur (Evaluator Guide)
+## 👩‍💻 Guide 
 
 **Les résultats de l'exécution complète sont disponibles directement dans le dossier [`/out`](./out).**
 
@@ -99,6 +99,24 @@ python generate.py --input <fichier_entree> [options]
 | `--wordpress` | Publie automatiquement les articles sur WordPress. | `python generate.py --input topics.json --wordpress` |
 | `--batch` | Active le mode Batch (Celery/Multiprocessing). | `python generate.py --input topics.json --batch` |
 | `--workers` | Nombre de workers pour le mode Batch. | `--workers 5` (Défaut: 3) |
+
+### Exemples de commandes
+```bash
+# Test rapide en mode démo (Gratuit)
+python generate.py --input topics_single.json --output ./out --demo
+
+# Lancement standard
+python generate.py --input topics.json --output ./out
+
+# Lancement avec traitement parallèle
+python generate.py --input topics.json --output ./out --parallel
+
+# Lancement en mode Batch avec 5 workers
+python generate.py --input topics.json --output ./out --batch --workers 5
+
+# Pipeline complet : WordPress + RAG + Recherche de sources
+python generate.py --input topics.json --output ./out --wordpress --rag --sources-retrieval
+```
 
 ---
 
