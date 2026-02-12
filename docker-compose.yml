@@ -1,0 +1,119 @@
+version: '3.8'
+
+services:
+  # Service principal du pipeline
+  pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: geo-gso-pipeline
+    image: geo-gso-pipeline:latest
+
+    environment:
+      # API Keys (depuis fichier .env)
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+
+      # Configuration LLM
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - LLM_MODEL=${LLM_MODEL:-gpt-4o}
+      - REQUEST_TIMEOUT=${REQUEST_TIMEOUT:-90}
+      - MAX_RETRIES=${MAX_RETRIES:-3}
+
+      # Configuration pipeline
+      - SIMILARITY_THRESHOLD=${SIMILARITY_THRESHOLD:-0.85}
+
+      # Redis (pour Celery)
+      - REDIS_URL=redis://redis:6379/0
+
+      # WordPress (optionnel)
+      - WP_URL=${WP_URL:-}
+      - WP_USERNAME=${WP_USERNAME:-}
+      - WP_APP_PASSWORD=${WP_APP_PASSWORD:-}
+
+    volumes:
+      # Mount topics.json en lecture seule
+      - ./topics.json:/app/topics.json:ro
+
+      # Mount outputs en lecture/écriture
+      - ./out:/data/out
+
+      # Mount data pour RAG (optionnel)
+      - ./data:/data/knowledge_base:ro
+
+    command: >
+      --input topics.json --output /data/out --parallel
+
+    depends_on:
+      - redis
+
+    networks:
+      - pipeline-network
+
+    restart: unless-stopped
+
+  # Redis pour Celery (traitement async)
+  redis:
+    image: redis:7-alpine
+    container_name: geo-gso-redis
+
+    ports:
+      - "6379:6379"
+
+    volumes:
+      - redis-data:/data
+
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+
+    networks:
+      - pipeline-network
+
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+    restart: unless-stopped
+
+  # Celery Worker (optionnel, pour traitement distribué)
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: geo-gso-worker
+    image: geo-gso-pipeline:latest
+
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - LLM_MODEL=${LLM_MODEL:-gpt-4o}
+      - REDIS_URL=redis://redis:6379/0
+
+    command: celery -A src.tasks worker --loglevel=info --concurrency=2
+
+    depends_on:
+      - redis
+
+    networks:
+      - pipeline-network
+
+    restart: unless-stopped
+
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+
+volumes:
+  redis-data:
+    driver: local
+
+networks:
+  pipeline-network:
+    driver: bridge

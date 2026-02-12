@@ -105,9 +105,10 @@ def run_pipeline(args):
     ))
     
     config_errors = validate_config()
-    if config_errors:
+    if config_errors and not args.demo:
         for err in config_errors:
             console.print(f"[red]Config Error: {err}[/red]")
+        console.print("[yellow]Tip: Use --demo to run without API keys[/yellow]")
         sys.exit(1)
     
     # ── Load Topics ────────────────────────────────────────────────
@@ -115,7 +116,13 @@ def run_pipeline(args):
     console.print(f"\n[green]✓[/green] Loaded [bold]{len(topics)}[/bold] topics from [cyan]{input_path}[/cyan]")
     
     # ── Initialize Core Modules ────────────────────────────────────
-    llm_client = LLMClient(provider=args.provider, model=args.model)
+    if args.demo:
+        from src.mock_llm import MockLLMClient
+        console.print("[yellow]⚠ DEMO MODE - Using mock LLM (no API costs)[/yellow]")
+        llm_client = MockLLMClient()
+    else:
+        llm_client = LLMClient(provider=args.provider, model=args.model)
+        
     generator = ArticleGenerator(llm_client)
     scorer = ArticleScorer()
     dedup_engine = DeduplicationEngine()
@@ -373,6 +380,12 @@ Examples:
     parser.add_argument(
         "--model",
         help="Specific model name (overrides default for provider)",
+    )
+    
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="Demo mode with mock LLM (no API costs, instant execution)",
     )
     
     args = parser.parse_args()
