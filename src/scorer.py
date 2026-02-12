@@ -14,7 +14,7 @@ from src.config import (
 
 logger = logging.getLogger(__name__)
 
-# Try to import textstat; graceful fallback if unavailable
+
 try:
     import textstat
     TEXTSTAT_AVAILABLE = True
@@ -59,7 +59,7 @@ def _score_structure(article) -> tuple[int, list[str]]:
         else:
             warnings.append(f"Structure: missing or insufficient — {check_name}")
     
-    # Bonus/penalty for meta description length
+   
     if article.meta_description:
         md_len = len(article.meta_description)
         if md_len < META_DESC_MIN:
@@ -69,7 +69,7 @@ def _score_structure(article) -> tuple[int, list[str]]:
             warnings.append(f"Meta description too long ({md_len} chars, max ~{META_DESC_MAX})")
             score -= 1
     
-    # Check intro length
+    
     if article.intro_lines > MAX_INTRO_LINES:
         warnings.append(f"Introduction too long ({article.intro_lines} lines, max {MAX_INTRO_LINES})")
         score -= 1
@@ -85,22 +85,21 @@ def _score_readability(content: str, language: str) -> tuple[int, list[str]]:
     max_score = SCORE_WEIGHTS["readability"]
     warnings = []
     
-    # Strip markdown formatting for analysis
+    
     plain_text = re.sub(r'[#*\[\]\(\)`>|_-]', '', content)
     plain_text = re.sub(r'https?://\S+', '', plain_text)
     
     if TEXTSTAT_AVAILABLE:
         if language == "fr":
-            # Use a general approach for French
+            
             try:
                 flesch = textstat.flesch_reading_ease(plain_text)
             except Exception:
-                flesch = 50  # Default mid-range
+                flesch = 50  
         else:
             flesch = textstat.flesch_reading_ease(plain_text)
         
-        # Flesch: 0-30 (difficult) → lower score, 60-100 (easy) → higher score
-        # For expert content, moderate difficulty (40-60) is ideal
+
         if flesch >= 50:
             score = max_score
         elif flesch >= 30:
@@ -112,7 +111,7 @@ def _score_readability(content: str, language: str) -> tuple[int, list[str]]:
             score = int(max_score * 0.4)
             warnings.append(f"Readability: content is very difficult to read (Flesch: {flesch:.0f})")
     else:
-        # Fallback: estimate based on sentence length
+       
         sentences = re.split(r'[.!?]+', plain_text)
         sentences = [s.strip() for s in sentences if s.strip()]
         if sentences:
@@ -127,7 +126,7 @@ def _score_readability(content: str, language: str) -> tuple[int, list[str]]:
         else:
             score = int(max_score * 0.5)
     
-    # Bonus for use of lists and formatting
+ 
     list_items = len(re.findall(r'^\s*[-*]\s+', content, re.MULTILINE))
     if list_items >= 10:
         score = min(score + 2, max_score)
@@ -149,7 +148,7 @@ def _score_sources(sources: list[str]) -> tuple[int, list[str]]:
         warnings.append("Sources: no sources provided")
         return 0, warnings
     
-    # Base score from count
+    t
     if count >= 5:
         score = int(max_score * 0.7)
     elif count >= MIN_SOURCES:
@@ -158,7 +157,7 @@ def _score_sources(sources: list[str]) -> tuple[int, list[str]]:
         score = int(max_score * 0.3)
         warnings.append(f"Sources: only {count} sources (minimum {MIN_SOURCES})")
     
-    # Domain diversity bonus
+   
     domains = set()
     for url in sources:
         match = re.search(r'https?://(?:www\.)?([^/]+)', url)
@@ -186,7 +185,7 @@ def _score_llm_friendliness(content: str, faq: list, takeaways: list) -> tuple[i
     warnings = []
     score = 0
     
-    # 1. Direct answers (FAQ quality) — 5 points
+
     if len(faq) >= 5:
         score += 5
     elif len(faq) >= 3:
@@ -196,7 +195,7 @@ def _score_llm_friendliness(content: str, faq: list, takeaways: list) -> tuple[i
         score += 1
         warnings.append(f"LLM-friendliness: FAQ too short ({len(faq)} questions)")
     
-    # 2. Enumeration/lists presence — 4 points
+ 
     list_items = len(re.findall(r'^\s*[-*]\s+', content, re.MULTILINE))
     numbered_items = len(re.findall(r'^\s*\d+\.\s+', content, re.MULTILINE))
     total_lists = list_items + numbered_items
@@ -210,7 +209,7 @@ def _score_llm_friendliness(content: str, faq: list, takeaways: list) -> tuple[i
         score += 1
         warnings.append("LLM-friendliness: low use of lists/enumerations")
     
-    # 3. Bold/key terms — 3 points
+  
     bold_terms = len(re.findall(r'\*\*[^*]+\*\*', content))
     if bold_terms >= 10:
         score += 3
@@ -220,7 +219,7 @@ def _score_llm_friendliness(content: str, faq: list, takeaways: list) -> tuple[i
         score += 1
         warnings.append("LLM-friendliness: few bold/highlighted terms")
     
-    # 4. Key takeaways — 3 points
+   
     if len(takeaways) >= MIN_TAKEAWAYS:
         score += 3
     elif len(takeaways) >= 3:
@@ -228,13 +227,13 @@ def _score_llm_friendliness(content: str, faq: list, takeaways: list) -> tuple[i
     else:
         score += 1
     
-    # 5. Information density (words per H2 section average) — 3 points
+
     h2_sections = re.split(r'^##\s+', content, flags=re.MULTILINE)
     if len(h2_sections) > 1:
         section_lengths = [len(s.split()) for s in h2_sections[1:]]
         avg_length = sum(section_lengths) / len(section_lengths)
         if 50 <= avg_length <= 300:
-            score += 3  # Good density
+            score += 3  
         elif 30 <= avg_length <= 500:
             score += 2
         else:
@@ -243,7 +242,7 @@ def _score_llm_friendliness(content: str, faq: list, takeaways: list) -> tuple[i
     else:
         score += 1
     
-    # 6. Entity presence (capitalized proper nouns as proxy) — 2 points
+
     entities = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', content)
     unique_entities = len(set(entities))
     if unique_entities >= 15:
@@ -292,7 +291,7 @@ class ArticleScorer:
         result.details["llm_friendliness"] = s_llm
         result.warnings.extend(w_llm)
         
-        # 5. Duplication risk (inverse: lower similarity = higher score)
+      
         max_dup = SCORE_WEIGHTS["duplication"]
         if similarity_score <= 0.3:
             s_dup = max_dup

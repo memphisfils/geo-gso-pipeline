@@ -11,35 +11,28 @@ An advanced, production-grade pipeline that generates, scores, and exports high-
 
 ---
 
-## 👩‍💻 For Reviewers / Evaluators
+## 👩‍💻 Guide pour le Correcteur (Evaluator Guide)
 
-**Quick Start Evaluation ( < 2 minutes )**
+**Les résultats de l'exécution complète sont disponibles directement dans le dossier [`/out`](./out).**
 
-You can test the entire pipeline immediately without any API keys using the **Demo Mode**.
+Pour tester le pipeline immédiatement sans configuration complexe ni frais d'API, utilisez le **Mode Démo**.
 
 ```bash
-# 1. Install (Linux/macOS)
-./install.sh
+# 1. Installation Rapide
+./install.sh  # Linux/macOS
+# OU
+.\install.ps1 # Windows
 
-# 1. Install (Windows)
-./install.ps1
-
-# 2. Run Demo (Free, Instant, No API Key required)
-source venv/bin/activate  # or .\venv\Scripts\Activate.ps1
+# 2. Exécution Démo (Gratuit, Instantané, Sans Clé API)
+source venv/bin/activate  # ou .\venv\Scripts\Activate.ps1
 python generate.py --input topics_single.json --output ./out --demo
 ```
 
-**Expected Result:**
-- ✅ Pipeline completes in ~5 seconds
-- ✅ Generates 1 article in `./out`
-- ✅ Scores quality (fake score in demo)
-- ✅ Exports to Markdown, JSON, HTML
-
 ---
 
-## 🏗️ Architecture
+## 🏗️ Architecture System
 
-The pipeline follows a modular, event-driven architecture designed for reliability and maintainability.
+Le pipeline suit une architecture modulaire et événementielle, conçue pour la fiabilité et la maintenabilité.
 
 ```mermaid
 graph TD
@@ -54,7 +47,7 @@ graph TD
         
         D -->|Prompt Engineering| E[LLM Client]
         E -->|API Call| F((LLM Providers))
-        F -.->|OpenAI/Ant/Gemini| E
+        F -.->|OpenAI/Ant/Gemini/DeepSeek| E
         
         subgraph Enrichment
             D -.->|RAG| G[Vector Store]
@@ -80,99 +73,111 @@ graph TD
     end
 ```
 
-### Key Components
-
-1.  **Orchestrator (`generate.py`)**: Manages CLI args, config validation, and pipeline flow (Sequential or Parallel).
-2.  **LLM Client Factory (`src/llm_client.py`)**: Unified interface for OpenAI, Anthropic, Gemini, DeepSeek. Handles retries and backoff.
-3.  **Generator (`src/article_generator.py`)**: Handles prompt construction, context injection (RAG/Web), and robust parsing of LLM output.
-4.  **Quality Engine**:
-    *   **Scorer (`src/scorer.py`)**: Evaluates structure, readability, sources, and SEO/GEO factors.
-    *   **Deduplication (`src/deduplication.py`)**: Uses `sentence-transformers` to prevent content overlap.
-5.  **Exporter (`src/exporter.py` & `src/wordpress_publisher.py`)**: Multi-format saver + direct CMS integration.
-
 ---
 
-## ✨ Features
+## 🛠️ Manuel de Référence CLI (Command Line Interface)
 
-- **Multi-LLM Support**: Switch between OpenAI (GPT-4o), Anthropic (Claude), Gemini, DeepSeek.
-- **GEO/GSO Optimization**: Structure specifically designed for Generative Engine Optimization.
-- **RAG & Real-Time Web Search**: Enriches content with internal knowledge and live web data.
-- **Quality Scoring**: Automatic grading /100 based on 5 technical criteria.
-- **Anti-Duplication**: Semantic analysis to ensure content uniqueness.
-- **Batch Processing**: Parallel generation for high-volume needs.
-- **WordPress Integration**: Direct publishing to WP sites.
-- **Dockerized**: specific `Dockerfile` and `docker-compose.yml` for containerized deployment.
+Le script principal `generate.py` accepte de nombreux arguments pour personnaliser l'exécution.
 
----
-
-## 🚀 Installation & Usage
-
-### Method 1: Automated Script (Recommended)
-
-**Linux/macOS:**
+### Usage de base
 ```bash
+python generate.py --input <fichier_entree> [options]
+```
+
+### Liste complète des arguments
+| Argument | Description | Exemple / Valeur |
+|:---|:---|:---|
+| `-h, --help` | Affiche l'aide et quitte. | `python generate.py --help` |
+| `--input, -i` | **Obligatoire.** Chemin vers le fichier JSON des sujets. | `--input topics.json` |
+| `--output, -o` | Dossier de sortie pour les articles et rapports. | `--output ./out` (Défaut: `./out`) |
+| `--parallel` | Active le traitement parallèle (multithreading). | `python generate.py --input topics.json --parallel` |
+| `--demo` | **Mode Démo.** Utilise un "Mock LLM" (gratuit, pas besoin d'API). | `python generate.py --input topics.json --demo` |
+| `--provider` | Choix du fournisseur d'IA. | `openai`, `anthropic`, `gemini`, `deepseek` |
+| `--model` | Nom spécifique du modèle. | `--model gpt-4o`, `--model claude-3-5-sonnet-20240620` |
+| `--sources-retrieval` | Active la recherche de sources réelles sur le web. | `python generate.py --input topics.json --sources-retrieval` |
+| `--rag` | Active l'enrichissement par base de connaissances locale. | `python generate.py --input topics.json --rag` |
+| `--wordpress` | Publie automatiquement les articles sur WordPress. | `python generate.py --input topics.json --wordpress` |
+| `--batch` | Active le mode Batch (Celery/Multiprocessing). | `python generate.py --input topics.json --batch` |
+| `--workers` | Nombre de workers pour le mode Batch. | `--workers 5` (Défaut: 3) |
+
+---
+
+## ✨ Fonctionnalités Détaillées
+
+### 🤖 Support Multi-LLM
+Le pipeline est agnostique du fournisseur. Vous pouvez passer d'un modèle à l'autre simplement via la ligne de commande :
+*   **OpenAI** (Par défaut) : `openai`
+*   **Anthropic** : `anthropic` (Claude 3.5 Sonnet)
+*   **Google** : `gemini` (Gemini 1.5 Pro)
+*   **DeepSeek** : `deepseek` (Modèle DeepSeek-V3 via API compatible)
+
+### 📊 Scoring de Qualité (/100)
+Chaque article est noté selon 5 critères techniques (20 points chacun) :
+1.  **Structure** : Respect des balises H1-H3, présence de la FAQ, meta, etc.
+2.  **Lisibilité** : Score Flesch-Kincaid (ajusté pour le Français).
+3.  **Sources** : Nombre et diversité des domaines cités.
+4.  **LLM-friendliness** : Formatage optimisé pour être cité par les moteurs IA.
+5.  **Risque de Duplication** : Score de similarité sémantique avec le reste du corpus.
+
+### 🔍 Anti-Duplication Sémantique
+Utilise des **Embeddings** (`all-MiniLM-L6-v2`) pour calculer la similarité cosinus entre les articles. Si deux sujets ou contenus sont trop proches (> 0.85), le pipeline lève une alerte.
+
+### 🌐 Recherche Web & RAG
+*   **Search Engine** : Capacité à chercher sur Google (via Serper/Tavily) ou DuckDuckGo pour sourcer des faits réels.
+*   **RAG (Retrieval Augmented Generation)** : Injection de connaissances depuis vos propres documents locaux dans le prompt de génération.
+
+---
+
+## 🚀 Installation
+
+### 1. Installation Automatique (Recommandé)
+Les scripts d'installation gèrent la création du `venv`, la mise à jour de `pip`, et l'installation des dépendances.
+
+**Linux/macOS :**
+```bash
+chmod +x install.sh
 ./install.sh
 ```
 
-**Windows:**
+**Windows :**
 ```powershell
 .\install.ps1
 ```
 
-### Method 2: Docker
-
+### 2. Docker
+Le projet est entièrement containerisé avec support Redis pour les tâches asynchrones.
 ```bash
 docker-compose up --build
-```
-
-### Method 3: Manual
-
-```bash
-python -m venv venv
-source venv/bin/activate  # or .\venv\Scripts\Activate
-pip install -r requirements.txt
-cp .env.example .env  # Configure your keys
 ```
 
 ---
 
 ## ⚙️ Configuration (.env)
 
-| Variable | Description | Required? |
-|----------|-------------|-----------|
-| `OPENAI_API_KEY` | For OpenAI models | Yes (or other provider) |
-| `ANTHROPIC_API_KEY` | For Claude models | No |
-| `GEMINI_API_KEY` | For Google Gemini | No |
-| `LLM_PROVIDER` | Default provider (`openai`, `anthropic`, etc.) | No (Default: openai) |
-| `WP_URL` | WordPress Site URL | No (For publishing) |
-| `WP_APP_PASSWORD` | WordPress Application Password | No (For publishing) |
+| Variable | Description |
+|:---|:---|
+| `OPENAI_API_KEY` | Clé API pour OpenAI |
+| `ANTHROPIC_API_KEY` | Clé API pour Anthropic |
+| `GEMINI_API_KEY` | Clé API pour Google Gemini |
+| `LLM_PROVIDER` | Fournisseur par défaut |
+| `WP_URL` | URL de l'API WordPress |
+| `WP_APP_PASSWORD` | Mot de passe d'application WordPress |
 
 ---
 
-## 🧪 Testing
-
-The project includes a comprehensive test suite.
+## 🧪 Tests & Qualité
 
 ```bash
-# Run unit tests
+# Lancer tous les tests
 pytest tests/ -v
 
-# Run coverage report
+# Rapport de couverture
 pytest tests/ --cov=src --cov-report=html
 ```
 
 ---
 
-## 📈 Performance
-
-| Metric | Benchmark |
-|--------|-----------|
-| **Speed** | ~15s / article (GPT-4o) |
-| **Throughput** | ~20 articles / min (Parallel) |
-| **Quality** | Avg. Score > 85/100 |
-
----
-
-## 📄 License
+## 📄 Licence
 
 MIT © 2026 Paul Fils Rasolo
+

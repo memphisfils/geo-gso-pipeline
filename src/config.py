@@ -7,11 +7,11 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load .env from project root
+
 PROJECT_ROOT = Path(__file__).parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
 
-# ── LLM Configuration ──────────────────────────────────────────────
+
 OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
 GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
@@ -23,11 +23,11 @@ LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openai")
 REQUEST_TIMEOUT: int = int(os.getenv("REQUEST_TIMEOUT", "90"))
 MAX_RETRIES: int = int(os.getenv("MAX_RETRIES", "3"))
 
-# ── Anti-Duplication ───────────────────────────────────────────────
+
 SIMILARITY_THRESHOLD: float = float(os.getenv("SIMILARITY_THRESHOLD", "0.85"))
 EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
 
-# ── Article Structure Requirements ─────────────────────────────────
+
 MIN_H2_SECTIONS: int = 4
 MIN_FAQ_QUESTIONS: int = 5
 MIN_SOURCES: int = 3
@@ -37,7 +37,7 @@ MAX_INTRO_LINES: int = 5
 MIN_TAKEAWAYS: int = 5
 MAX_TAKEAWAYS: int = 8
 
-# ── Scoring Weights (each out of 20, total /100) ──────────────────
+
 SCORE_WEIGHTS = {
     "structure": 20,
     "readability": 20,
@@ -46,7 +46,7 @@ SCORE_WEIGHTS = {
     "duplication": 20,
 }
 
-# ── Output Directories ────────────────────────────────────────────
+
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "out"
 
 def validate_config() -> list[str]:

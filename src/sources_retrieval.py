@@ -104,7 +104,7 @@ class WebSearchClient:
                 sources.append(Source(
                     url=actual_url,
                     title=title.strip(),
-                    snippet="",  # Would need more parsing for snippet
+                    snippet="",  
                     domain=domain,
                     is_accessible=True,
                 ))
@@ -209,7 +209,7 @@ class SourceValidator:
             Dict with 'is_valid', 'status_code', 'content_type'.
         """
         try:
-            # Some servers reject HEAD, so try GET with stream=True if HEAD fails
+            
             try:
                 response = self.session.head(url, timeout=self.timeout, allow_redirects=True)
             except requests.MethodNotAllowed:
@@ -237,7 +237,7 @@ class SourceValidator:
                 "url": url,
                 **self.validate_url(url)
             })
-            time.sleep(delay)  # Rate limiting
+            time.sleep(delay) 
         
         return results
 
@@ -262,7 +262,7 @@ class SourcesRetrievalEngine:
         Returns:
             List of validated Source objects.
         """
-        # Generate search queries from topic
+        
         queries = self._generate_search_queries(topic)
         
         all_sources = []
@@ -270,7 +270,7 @@ class SourcesRetrievalEngine:
             sources = self.search_client.search(query, num_results=num_sources)
             all_sources.extend(sources)
         
-        # Deduplicate by URL
+       
         seen_urls = set()
         unique_sources = []
         for source in all_sources:
@@ -295,7 +295,7 @@ class SourcesRetrievalEngine:
     def _generate_search_queries(self, topic: str) -> List[str]:
         """Generate multiple search queries from a topic."""
         queries = [
-            topic,  # Direct query
+            topic,  
             f"{topic} guide 2024 2025",  # Time-specific
             f"best {topic}",  # Best/recommendations
         ]

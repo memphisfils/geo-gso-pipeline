@@ -8,7 +8,7 @@ import logging
 import requests
 from dataclasses import dataclass
 from typing import Optional
-from src.config import OPENAI_API_KEY  # Import pattern consistency
+from src.config import OPENAI_API_KEY 
 
 logger = logging.getLogger(__name__)
 
@@ -123,14 +123,10 @@ class WordPressPublisher:
     
     def _format_content(self, article) -> str:
         """Format article content for WordPress."""
-        # Convert markdown to HTML (basic conversion)
+      
         content = article.content_markdown
         
-        # Add quality badge at the top
-        # Check if quality_score exists on article, otherwise assume N/A or get it from somewhere else
-        # The prompt code assumes article.quality_score exists, but it's passed as 'score' arg to publish_article
-        # I'll use a placeholder or modify to use 'score' arg if needed, but the prompt code uses article.quality_score in the HTML badge
-        # I will assume score.total is what we want.
+       
         
         badge = f"""
         <div style="background: #f0f0f0; padding: 10px; margin-bottom: 20px; border-radius: 5px;">
@@ -138,7 +134,7 @@ class WordPressPublisher:
         </div>
         """
         
-        # Simple markdown to HTML conversion
+       
         import re
         content = re.sub(r'^### (.+)$', r'<h3>\1</h3>', content, flags=re.MULTILINE)
         content = re.sub(r'^## (.+)$', r'<h2>\1</h2>', content, flags=re.MULTILINE)

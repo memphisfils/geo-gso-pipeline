@@ -10,7 +10,7 @@ from src.config import SIMILARITY_THRESHOLD, EMBEDDING_MODEL
 
 logger = logging.getLogger(__name__)
 
-# Lazy-load the model to avoid slow imports at startup
+
 _model = None
 
 

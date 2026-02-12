@@ -38,7 +38,7 @@ class ArticleData:
 def generate_slug(topic: str) -> str:
     """Generate a URL-friendly slug from a topic string."""
     slug = topic.lower().strip()
-    # Replace accented characters
+    
     replacements = {
         'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
         'à': 'a', 'â': 'a', 'ä': 'a',
@@ -66,7 +66,7 @@ def _parse_meta_description(content: str) -> str:
     match = re.search(r'\*\*Meta\s*description[:\s]*\*\*\s*(.+)', content, re.IGNORECASE)
     if match:
         return match.group(1).strip().strip('[]')
-    # Fallback: look for line after "Meta description"
+    
     match = re.search(r'Meta\s*description[:\s]*(.+)', content, re.IGNORECASE)
     return match.group(1).strip().strip('[]') if match else ""
 
@@ -74,13 +74,13 @@ def _parse_meta_description(content: str) -> str:
 def _parse_faq(content: str) -> list[dict]:
     """Extract FAQ questions and answers from markdown content."""
     faq_list = []
-    # Match patterns like "**Q: question?**\nA: answer" or "**question?**\nanswer"
+    
     pattern = r'\*\*Q:\s*(.+?)\?\s*\*\*\s*\n\s*A:\s*(.+?)(?=\n\s*\*\*Q:|\n\s*##|\Z)'
     matches = re.findall(pattern, content, re.DOTALL | re.IGNORECASE)
     for q, a in matches:
         faq_list.append({"q": q.strip() + "?", "a": a.strip()})
     
-    # Fallback: try numbered format
+ 
     if not faq_list:
         pattern = r'\d+\.\s*\*\*(.+?\?)\s*\*\*\s*\n\s*(.+?)(?=\n\s*\d+\.|\n\s*##|\Z)'
         matches = re.findall(pattern, content, re.DOTALL)
@@ -93,7 +93,7 @@ def _parse_faq(content: str) -> list[dict]:
 def _parse_sources(content: str) -> list[str]:
     """Extract source URLs from markdown content."""
     urls = re.findall(r'https?://[^\s\)]+', content)
-    # Deduplicate while preserving order
+    
     seen = set()
     unique_urls = []
     for url in urls:
@@ -108,7 +108,7 @@ def _parse_author(content: str) -> dict:
     """Extract author information from markdown content."""
     author = {"name": "", "bio": "", "methodology": []}
     
-    # Find the author section
+    
     author_section = re.search(
         r'(?:About the Author|Auteur).*?\n\s*\*\*(.+?)\*\*\s*[—–-]\s*(.+?)(?:\n|$)',
         content, re.IGNORECASE | re.DOTALL
@@ -117,7 +117,7 @@ def _parse_author(content: str) -> dict:
         author["name"] = author_section.group(1).strip()
         author["bio"] = author_section.group(2).strip()
     
-    # Look for additional bio lines
+    
     bio_match = re.search(
         r'(?:About the Author|Auteur).*?\n.*?\n\n(.+?)(?:\n\s*\*\*M[ée]thodolog|$)',
         content, re.IGNORECASE | re.DOTALL
@@ -133,7 +133,7 @@ def _parse_author(content: str) -> dict:
 def _parse_takeaways(content: str) -> list[str]:
     """Extract key takeaways from the article."""
     takeaways = []
-    # Find the takeaways section
+    
     match = re.search(
         r'##\s*Key\s*Takeaways.*?\n(.*?)(?=\n##|\Z)',
         content, re.IGNORECASE | re.DOTALL

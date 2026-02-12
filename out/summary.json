@@ -1,0 +1,38 @@
+{
+  "pipeline_run": {
+    "timestamp": "2026-02-12T07:03:30.124511+00:00",
+    "total_articles": 1,
+    "average_score": 89.0
+  },
+  "articles": [
+    {
+      "slug": "best-ai-writing-tools-for-content-creators-in-2026",
+      "topic": "Best AI writing tools for content creators in 2026",
+      "language": "en",
+      "tone": "friendly",
+      "title": "Best AI writing tools for content creators in 2026: Complete Guide 2026",
+      "score": {
+        "total": 89,
+        "details": {
+          "structure": 19,
+          "readability": 18,
+          "sources": 12,
+          "llm_friendliness": 20,
+          "duplication": 20
+        }
+      },
+      "warnings": [
+        "Meta description too long (202 chars, max ~160)",
+        "Sources: low domain diversity (1 unique domains for 3 sources)"
+      ],
+      "validation_errors": [
+        "Meta description length 202 chars (target: 150-160)"
+      ]
+    }
+  ],
+  "deduplication": {
+    "threshold": 0.85,
+    "duplicate_pairs": [],
+    "total_duplicates_detected": 0
+  }
+}

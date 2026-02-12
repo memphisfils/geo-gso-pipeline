@@ -11,7 +11,7 @@ try:
     HAS_CELERY = True
 except ImportError:
     HAS_CELERY = False
-    # Mock decorator if celery not available
+  
     def shared_task(*args, **kwargs):
         def decorator(func):
             return func
@@ -25,7 +25,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# Celery app configuration
+
 if HAS_CELERY:
     app = Celery('geo_gso_pipeline')
     try:
@@ -138,7 +138,7 @@ def export_article_task(article_data: Dict, score_data: Dict, output_dir: str) -
     }
 
 
-# Alternative: Simple batch processing without Celery broker
+
 class BatchProcessor:
     """
     Simple batch processor using multiprocessing.
@@ -162,9 +162,7 @@ class BatchProcessor:
         from multiprocessing import Pool
         from functools import partial
         
-        # Windows multiprocessing requires this check usually, but here it's called inside a function
-        # We need to make sure _process_single is picklable. It is a method, so we should use staticmethod or separate function.
-        # But 'partial' might work if we are careful.
+    
         
         process_func = partial(self._process_single, output_dir=output_dir)
         
@@ -182,20 +180,20 @@ class BatchProcessor:
     def _process_single(topic_data: dict, output_dir: str) -> dict:
         """Process a single topic (runs in separate process)."""
         try:
-            # Re-import inside process to avoid pickling issues
+            
             from src.llm_client import LLMClient
             from src.article_generator import ArticleGenerator
             from src.scorer import ArticleScorer
             from src.exporter import ArticleExporter
             
-            # Need strict error handling here
+            
             try:
                 llm = LLMClient()
                 generator = ArticleGenerator(llm)
                 scorer = ArticleScorer()
                 exporter = ArticleExporter(output_dir)
                 
-                # Check required keys
+                
                 if "topic" not in topic_data:
                     return {"success": False, "error": "Missing topic key", "topic_data": topic_data}
                 

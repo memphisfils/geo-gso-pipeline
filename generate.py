@@ -20,7 +20,6 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.logging import RichHandler
 
-# ── Setup Logging ──────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
     format="%(message)s",
@@ -44,7 +43,7 @@ def load_topics(input_path: str) -> list[dict]:
         console.print("[red]Error: topics.json must be a non-empty JSON array[/red]")
         sys.exit(1)
     
-    # Validate each topic
+  
     for i, topic in enumerate(topics):
         if "topic" not in topic:
             console.print(f"[red]Error: Topic #{i+1} is missing 'topic' field[/red]")
@@ -89,7 +88,7 @@ def run_pipeline(args):
     if use_wordpress:
         try:
             from src.wordpress_publisher import WordPressPublisher
-            wp_publisher = WordPressPublisher(dry_run=False) # Will use env vars
+            wp_publisher = WordPressPublisher(dry_run=False) 
             if not wp_publisher.test_connection():
                 console.print("[yellow]⚠ WordPress connection failed. Falling back to dry-run.[/yellow]")
                 wp_publisher.dry_run = True
@@ -98,7 +97,6 @@ def run_pipeline(args):
         except ImportError:
             console.print("[yellow]⚠ WordPress module not found, skipping[/yellow]")
 
-    # ── Validation ─────────────────────────────────────────────────
     console.print(Panel.fit(
         "[bold cyan]🚀 GEO/GSO Pipeline — Article Generation & Scoring[/bold cyan]",
         border_style="cyan",
@@ -111,11 +109,11 @@ def run_pipeline(args):
         console.print("[yellow]Tip: Use --demo to run without API keys[/yellow]")
         sys.exit(1)
     
-    # ── Load Topics ────────────────────────────────────────────────
+
     topics = load_topics(input_path)
     console.print(f"\n[green]✓[/green] Loaded [bold]{len(topics)}[/bold] topics from [cyan]{input_path}[/cyan]")
     
-    # ── Initialize Core Modules ────────────────────────────────────
+   
     if args.demo:
         from src.mock_llm import MockLLMClient
         console.print("[yellow]⚠ DEMO MODE - Using mock LLM (no API costs)[/yellow]")
@@ -128,11 +126,11 @@ def run_pipeline(args):
     dedup_engine = DeduplicationEngine()
     exporter = ArticleExporter(output_dir)
     
-    # ── Step 1: Generate Articles ──────────────────────────────────
+
     articles = []
     console.print(f"\n[bold]📝 Step 1/4: Generating articles...[/bold]\n")
     
-    # helper for single topic generation
+
     def process_topic(topic_data):
         topic = topic_data["topic"]
         lang = topic_data["language"]
@@ -140,21 +138,21 @@ def run_pipeline(args):
         
         additional_context = ""
         
-        # RAG Enrichment
+  
         if rag_enricher:
             try:
-                # We retrieve context strings
+                
                 context = rag_enricher.kb.retrieve(topic, top_k=2).formatted_context
                 if context:
                     additional_context += f"\n{context}"
             except Exception as e:
                 logger.warning(f"RAG failed for {topic}: {e}")
         
-        # Source Retrieval
+      
         if use_sources:
             try:
                 from src.sources_retrieval import SourcesRetrievalEngine
-                # Check for API keys
+              
                 api_key = os.getenv("SERPER_API_KEY") or os.getenv("TAVILY_API_KEY")
                 provider = "serper" if os.getenv("SERPER_API_KEY") else ("tavily" if os.getenv("TAVILY_API_KEY") else "duckduckgo")
                 
@@ -172,7 +170,7 @@ def run_pipeline(args):
         return generator.generate(topic, lang, tone, additional_context=additional_context)
 
     if (parallel or batch_mode) and len(topics) > 1:
-        # Parallel processing
+       
         max_workers = workers if batch_mode else min(3, len(topics))
         mode_str = "Batch" if batch_mode else "Parallel"
         console.print(f"  Using {mode_str} processing ({max_workers} workers)\n")
@@ -205,7 +203,7 @@ def run_pipeline(args):
                 
                 articles = [a for a in results if a is not None]
     else:
-        # Sequential generation
+        
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -234,7 +232,7 @@ def run_pipeline(args):
     
     console.print(f"[green]✓[/green] Generated [bold]{len(articles)}[/bold] articles\n")
     
-    # ── Step 2: Deduplication ──────────────────────────────────────
+   
     console.print(f"[bold]🔍 Step 2/4: Running deduplication analysis...[/bold]\n")
     dedup_result = dedup_engine.analyze(articles)
     
@@ -245,7 +243,7 @@ def run_pipeline(args):
     else:
         console.print(f"[green]✓[/green] No duplicates detected (threshold: {dedup_result.threshold})")
     
-    # ── Step 3: Scoring ────────────────────────────────────────────
+    
     console.print(f"\n[bold]📊 Step 3/4: Scoring articles...[/bold]\n")
     scores = []
     
@@ -254,7 +252,7 @@ def run_pipeline(args):
         score = scorer.score(article, similarity_score=max_sim)
         scores.append(score)
     
-    # Display scores table
+  
     score_table = Table(title="Article Quality Scores", show_lines=True)
     score_table.add_column("Article", style="cyan", min_width=30)
     score_table.add_column("Score", justify="center", style="bold")
@@ -281,7 +279,7 @@ def run_pipeline(args):
     
     console.print(score_table)
     
-    # ── Step 4: Export ─────────────────────────────────────────────
+   
     console.print(f"\n[bold]💾 Step 4/4: Exporting articles...[/bold]\n")
     
     for article, score in zip(articles, scores):
@@ -289,11 +287,11 @@ def run_pipeline(args):
         exporter.export_json(article, score)
         exporter.export_html(article, score)
         
-        # WordPress Publication
+      
         if wp_publisher:
             wp_publisher.publish_article(article, score)
     
-    # Generate global summary
+   
     summary_path = exporter.generate_summary(articles, scores, dedup_result)
     
     console.print(f"[green]✓[/green] Exported {len(articles)} articles:")
@@ -305,7 +303,7 @@ def run_pipeline(args):
     if wp_publisher:
         console.print(f"  📝 WordPress: Published {len(articles)} posts ({'DRY RUN' if wp_publisher.dry_run else 'LIVE'})")
     
-    # ── Final Summary ──────────────────────────────────────────────
+   
     avg_score = sum(s.total for s in scores) / len(scores)
     console.print(Panel.fit(
         f"[bold green]✅ Pipeline complete![/bold green]\n\n"
